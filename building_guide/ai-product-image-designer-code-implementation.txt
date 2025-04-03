@@ -1,0 +1,840 @@
+// AIProductImageDesigner.jsx
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Save, 
+  Download, 
+  RotateCcw, 
+  RotateCw, 
+  Upload, 
+  Trash2, 
+  Scissors, 
+  Edit, 
+  X, 
+  Search, 
+  Plus, 
+  Maximize, 
+  Minimize 
+} from 'lucide-react';
+
+/**
+ * AI 商品圖設計室 - 主組件
+ * 實現產品圖片上傳、去背、批量處理功能
+ */
+const AIProductImageDesigner = () => {
+  // ================== 狀態管理 ==================
+  const [currentPage, setCurrentPage] = useState('main'); // 'main' 或 'batch'
+  const [autoRemoveBackground, setAutoRemoveBackground] = useState(true);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+  const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
+  const [backgroundCategory, setBackgroundCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // 檔案上傳 input ref
+  const fileInputRef = useRef(null);
+
+  // ================== 模擬數據 ==================
+  // 推薦背景圖片
+  const recommendedBackgrounds = [
+    '/api/placeholder/120/90',
+    '/api/placeholder/120/90',
+    '/api/placeholder/120/90'
+  ];
+  
+  // 常用背景圖片
+  const recentlyUsedBackgrounds = [
+    '/api/placeholder/120/90',
+    '/api/placeholder/120/90',
+    '/api/placeholder/120/90'
+  ];
+  
+  // 模擬批量處理中的圖片
+  const batchImages = uploadedImages.length > 0 ? uploadedImages : [
+    { id: 1, url: '/api/placeholder/180/150', has_bg_removed: true },
+    { id: 2, url: '/api/placeholder/180/150', has_bg_removed: true },
+    { id: 3, url: '/api/placeholder/180/150', has_bg_removed: true },
+    { id: 4, url: '/api/placeholder/180/150', has_bg_removed: true }
+  ];
+
+  // 背景圖分類
+  const backgroundCategories = [
+    { id: 'all', name: '全部' },
+    { id: 'literary', name: '文青' },
+    { id: 'minimal', name: '簡約' },
+    { id: 'fashion', name: '時尚' },
+    { id: 'more', name: '更多' }
+  ];
+  
+  const backgroundSubCategories = [
+    { id: 'home', name: '居家' },
+    { id: 'kitchen', name: '餐廚' },
+    { id: 'flower', name: '花' }
+  ];
+
+  // ================== 事件處理函數 ==================
+  /**
+   * 處理檔案上傳
+   * @param {Event} e - 上傳事件對象
+   */
+  const handleFileUpload = (e) => {
+    const files = e.target.files;
+    
+    if (files && files.length > 0) {
+      const newImages = Array.from(files).map(file => ({
+        id: Date.now() + Math.random(),
+        url: URL.createObjectURL(file),
+        name: file.name,
+        has_bg_removed: autoRemoveBackground
+      }));
+      
+      setUploadedImages(prev => [...prev, ...newImages]);
+      
+      // 如果在主頁面上傳圖片，自動進入批量模式
+      if (currentPage === 'main') {
+        setCurrentPage('batch');
+      }
+    }
+    
+    // 重置 input，以便可以重複上傳相同的檔案
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  /**
+   * 處理拖放上傳
+   * @param {DragEvent} e - 拖放事件對象
+   */
+  const handleDrop = (e) => {
+    e.preventDefault();
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = e.dataTransfer.files;
+      
+      const newImages = Array.from(files)
+        .filter(file => file.type.startsWith('image/'))
+        .map(file => ({
+          id: Date.now() + Math.random(),
+          url: URL.createObjectURL(file),
+          name: file.name,
+          has_bg_removed: autoRemoveBackground
+        }));
+      
+      setUploadedImages(prev => [...prev, ...newImages]);
+      
+      if (currentPage === 'main') {
+        setCurrentPage('batch');
+      }
+    }
+  };
+
+  /**
+   * 防止拖放事件的默認行為
+   * @param {DragEvent} e - 拖放事件對象
+   */
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  /**
+   * 處理粘貼上傳
+   * @param {ClipboardEvent} e - 粘貼事件對象
+   */
+  const handlePaste = (e) => {
+    if (e.clipboardData && e.clipboardData.items) {
+      const items = e.clipboardData.items;
+      
+      const imageItems = Array.from(items).filter(item => item.type.startsWith('image/'));
+      
+      if (imageItems.length > 0) {
+        const newImages = imageItems.map(item => {
+          const file = item.getAsFile();
+          return {
+            id: Date.now() + Math.random(),
+            url: URL.createObjectURL(file),
+            name: 'pasted-image-' + Date.now(),
+            has_bg_removed: autoRemoveBackground
+          };
+        });
+        
+        setUploadedImages(prev => [...prev, ...newImages]);
+        
+        if (currentPage === 'main') {
+          setCurrentPage('batch');
+        }
+      }
+    }
+  };
+
+  /**
+   * 切換自動去背功能
+   */
+  const toggleBackgroundRemoval = () => {
+    setAutoRemoveBackground(!autoRemoveBackground);
+  };
+
+  /**
+   * 進入批量處理模式
+   */
+  const enterBatchMode = () => {
+    setCurrentPage('batch');
+  };
+
+  /**
+   * 退出批量處理模式
+   */
+  const exitBatchMode = () => {
+    setCurrentPage('main');
+  };
+
+  /**
+   * 切換圖片選擇狀態
+   * @param {number} id - 圖片ID
+   */
+  const toggleImageSelection = (id) => {
+    if (selectedImages.includes(id)) {
+      setSelectedImages(selectedImages.filter(imageId => imageId !== id));
+    } else {
+      setSelectedImages([...selectedImages, id]);
+    }
+  };
+
+  /**
+   * 刪除選中的圖片
+   */
+  const deleteSelectedImages = () => {
+    const newImages = uploadedImages.filter(image => !selectedImages.includes(image.id));
+    setUploadedImages(newImages);
+    setSelectedImages([]);
+  };
+
+  /**
+   * 刪除單張圖片
+   * @param {number} id - 圖片ID
+   * @param {Event} e - 事件對象
+   */
+  const deleteSingleImage = (id, e) => {
+    e.stopPropagation(); // 阻止事件冒泡到選擇圖片
+    
+    const newImages = uploadedImages.filter(image => image.id !== id);
+    setUploadedImages(newImages);
+    
+    // 如果刪除的圖片在選中列表中，同時從選中列表中移除
+    if (selectedImages.includes(id)) {
+      setSelectedImages(selectedImages.filter(imageId => imageId !== id));
+    }
+  };
+
+  /**
+   * 為單張圖片去背
+   * @param {number} id - 圖片ID
+   * @param {Event} e - 事件對象
+   */
+  const removeBackgroundSingleImage = (id, e) => {
+    e.stopPropagation(); // 阻止事件冒泡
+    
+    // 實際應用中應該調用API進行去背處理
+    console.log(`為圖片 ID: ${id} 移除背景`);
+    
+    // 模擬更新圖片狀態
+    const newImages = uploadedImages.map(image => 
+      image.id === id 
+        ? { ...image, has_bg_removed: true } 
+        : image
+    );
+    
+    setUploadedImages(newImages);
+  };
+
+  /**
+   * 編輯單張圖片
+   * @param {number} id - 圖片ID
+   * @param {Event} e - 事件對象
+   */
+  const editSingleImage = (id, e) => {
+    e.stopPropagation(); // 阻止事件冒泡
+    
+    // 實際應用中應該導航到編輯頁面
+    // navigate(`/edit/${id}`);
+    console.log(`編輯圖片 ID: ${id}`);
+  };
+
+  /**
+   * 儲存文件
+   */
+  const handleSaveFile = () => {
+    // 實際應用中應該調用API儲存當前狀態
+    console.log('儲存檔案');
+    setIsFileMenuOpen(false);
+  };
+
+  /**
+   * 打開下載選項
+   */
+  const handleOpenDownloadOptions = () => {
+    setIsDownloadMenuOpen(true);
+    setIsFileMenuOpen(false);
+  };
+
+  /**
+   * 下載指定格式的檔案
+   * @param {string} format - 檔案格式
+   */
+  const handleDownloadFile = (format) => {
+    // 實際應用中應該生成並下載指定格式的檔案
+    console.log(`下載 ${format} 格式檔案`);
+    setIsDownloadMenuOpen(false);
+  };
+
+  /**
+   * 復原上一步操作
+   */
+  const handleUndo = () => {
+    console.log('復原上一步操作');
+  };
+
+  /**
+   * 重做下一步操作
+   */
+  const handleRedo = () => {
+    console.log('重做下一步操作');
+  };
+
+  /**
+   * 處理搜索查詢變化
+   * @param {Event} e - 輸入事件對象
+   */
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  /**
+   * 選擇背景分類
+   * @param {string} category - 分類ID
+   */
+  const handleCategorySelect = (category) => {
+    setBackgroundCategory(category);
+  };
+
+  /**
+   * 處理背景圖片點擊
+   * @param {string} imageUrl - 背景圖片URL
+   */
+  const handleBackgroundSelect = (imageUrl) => {
+    console.log(`選擇背景: ${imageUrl}`);
+    // 實際應用中應該應用所選背景到已選中的圖片
+  };
+
+  /**
+   * 生成最終結果
+   */
+  const handleGenerate = () => {
+    console.log('生成最終結果');
+    // 實際應用中應該調用API處理選中的圖片和背景
+  };
+
+  // 監聽全局粘貼事件
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [currentPage, autoRemoveBackground]);
+
+  // ================== 頁面渲染 ==================
+  /**
+   * 渲染主頁面 (AI 商品圖-2)
+   */
+  const renderMainPage = () => (
+    <div className="flex flex-col h-screen">
+      {/* 頂部導航欄 */}
+      <Header 
+        isFileMenuOpen={isFileMenuOpen}
+        isDownloadMenuOpen={isDownloadMenuOpen}
+        setIsFileMenuOpen={setIsFileMenuOpen}
+        setIsDownloadMenuOpen={setIsDownloadMenuOpen}
+        handleSaveFile={handleSaveFile}
+        handleOpenDownloadOptions={handleOpenDownloadOptions}
+        handleDownloadFile={handleDownloadFile}
+        handleUndo={handleUndo}
+        handleRedo={handleRedo}
+      />
+      
+      {/* 主內容區 */}
+      <div className="flex flex-1">
+        {/* 左側功能欄 */}
+        <Sidebar activePage="product" />
+        
+        {/* 左側背景選擇面板 */}
+        <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+          <div className="p-4">
+            {/* 推薦背景 */}
+            <div className="mb-4">
+              <h3 className="font-medium mb-2">推薦</h3>
+              <div className="flex flex-wrap gap-2">
+                {recommendedBackgrounds.map((img, i) => (
+                  <img 
+                    key={i} 
+                    src={img} 
+                    alt="推薦背景" 
+                    className="w-20 h-16 object-cover rounded cursor-pointer"
+                    onClick={() => handleBackgroundSelect(img)}
+                  />
+                ))}
+              </div>
+  );
+
+  // ================== 子組件 ==================
+  /**
+   * 頂部導航欄組件
+   */
+  const Header = ({ 
+    isFileMenuOpen, 
+    isDownloadMenuOpen, 
+    setIsFileMenuOpen, 
+    setIsDownloadMenuOpen,
+    handleSaveFile,
+    handleOpenDownloadOptions,
+    handleDownloadFile,
+    handleUndo,
+    handleRedo
+  }) => (
+    <div className="bg-amber-50 p-4 flex justify-between items-center border-b border-amber-100">
+      <div className="flex items-center">
+        <h1 className="font-bold text-xl mr-6">AI 商品圖設計室</h1>
+        <div className="flex space-x-2">
+          {/* 檔案菜單 */}
+          <div className="relative">
+            <button 
+              className="px-3 py-1 hover:bg-amber-100 rounded"
+              onClick={() => {
+                setIsFileMenuOpen(!isFileMenuOpen);
+                setIsDownloadMenuOpen(false);
+              }}
+            >
+              檔案
+            </button>
+            
+            {isFileMenuOpen && (
+              <div className="absolute bg-white shadow-lg rounded mt-1 w-32 z-10">
+                <button 
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  onClick={handleSaveFile}
+                >
+                  儲存
+                </button>
+                <button 
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  onClick={handleOpenDownloadOptions}
+                >
+                  下載
+                </button>
+              </div>
+            )}
+            
+            {isDownloadMenuOpen && (
+              <div className="absolute bg-white shadow-lg rounded mt-1 w-32 z-10 left-32">
+                <button 
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  onClick={() => handleDownloadFile('JPG')}
+                >
+                  JPG
+                </button>
+                <button 
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  onClick={() => handleDownloadFile('PNG')}
+                >
+                  PNG
+                </button>
+                <button 
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  onClick={() => handleDownloadFile('PDF')}
+                >
+                  PDF
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* 復原按鈕 */}
+          <button 
+            className="p-1 hover:bg-amber-100 rounded"
+            onClick={handleUndo}
+          >
+            <RotateCcw size={18} />
+          </button>
+          
+          {/* 重做按鈕 */}
+          <button 
+            className="p-1 hover:bg-amber-100 rounded"
+            onClick={handleRedo}
+          >
+            <RotateCw size={18} />
+          </button>
+        </div>
+      </div>
+      
+      {/* 右側點數和儲值按鈕 */}
+      <div className="flex items-center">
+        <div className="mr-4">可用 Point 數：2.50</div>
+        <button className="bg-red-500 text-white px-3 py-1 rounded mr-2">
+          前往儲值
+        </button>
+        <button className="bg-gray-100 px-3 py-1 rounded">
+          查看 Point 紀錄
+        </button>
+      </div>
+    </div>
+  );
+
+  /**
+   * 左側功能欄組件
+   */
+  const Sidebar = ({ activePage }) => (
+    <div className="w-16 bg-amber-50 border-r border-amber-100 flex flex-col items-center py-4">
+      {/* 商品圖按鈕 */}
+      <button 
+        className={`w-10 h-10 rounded flex flex-col items-center justify-center mb-6 ${
+          activePage === 'product' ? 'bg-amber-200' : 'hover:bg-amber-100'
+        }`}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" />
+          <path d="M4 14L8 10L12 14L20 6" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+          <circle cx="9" cy="8" r="2" fill="currentColor" />
+        </svg>
+        <span className="text-xs mt-1">商品圖</span>
+      </button>
+      
+      {/* 我的按鈕 */}
+      <button className="w-10 h-10 rounded flex flex-col items-center justify-center mb-6 hover:bg-amber-100">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+          <path d="M20 20C20 16.6863 16.4183 14 12 14C7.58172 14 4 16.6863 4 20" stroke="currentColor" strokeWidth="2" />
+        </svg>
+        <span className="text-xs mt-1">我的</span>
+      </button>
+      
+      {/* 生成紀錄按鈕 */}
+      <button className="w-10 h-10 rounded flex flex-col items-center justify-center mb-6 hover:bg-amber-100">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z" stroke="currentColor" strokeWidth="2" />
+          <path d="M16 2V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M8 2V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M3 10H21" stroke="currentColor" strokeWidth="2" />
+        </svg>
+        <span className="text-xs mt-1">生成紀錄</span>
+      </button>
+      
+      {/* 免責聲明按鈕 */}
+      <button className="w-10 h-10 rounded flex flex-col items-center justify-center mb-6 hover:bg-amber-100">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 16V8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M12 20V20.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+        </svg>
+        <span className="text-xs mt-1">免責聲明</span>
+      </button>
+    </div>
+  );
+
+  // 根據當前頁面狀態返回相應的頁面
+  return currentPage === 'main' ? renderMainPage() : renderBatchModePage();
+};
+
+export default AIProductImageDesigner;
+            </div>
+            
+            {/* 最近常用背景 */}
+            <div className="mb-4">
+              <h3 className="font-medium mb-2">最近常用</h3>
+              <div className="flex flex-wrap gap-2">
+                {recentlyUsedBackgrounds.map((img, i) => (
+                  <img 
+                    key={i} 
+                    src={img} 
+                    alt="最近常用背景" 
+                    className="w-20 h-16 object-cover rounded cursor-pointer"
+                    onClick={() => handleBackgroundSelect(img)}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* 背景搜索和分類 */}
+            <div className="mb-4">
+              <h3 className="font-medium mb-2">推薦</h3>
+              <div className="relative mb-2">
+                <Search size={16} className="absolute left-2 top-2 text-gray-500" />
+                <input 
+                  type="text" 
+                  placeholder="輸入圖片關鍵字尋找" 
+                  className="w-full pl-8 pr-2 py-1 border border-gray-300 rounded text-sm"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+              </div>
+              
+              {/* 主分類 */}
+              <div className="flex text-sm mb-2 overflow-x-auto py-1">
+                {backgroundCategories.map((category) => (
+                  <button 
+                    key={category.id}
+                    className={`px-2 py-1 rounded mr-2 whitespace-nowrap ${
+                      backgroundCategory === category.id 
+                        ? 'bg-gray-200' 
+                        : 'hover:bg-gray-100'
+                    }`}
+                    onClick={() => handleCategorySelect(category.id)}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+              
+              {/* 子分類 */}
+              <div className="flex flex-wrap text-xs mb-2">
+                {backgroundSubCategories.map((category) => (
+                  <button 
+                    key={category.id}
+                    className="px-2 py-1 hover:bg-gray-100 rounded mr-2 mb-1"
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* 顏色空間 */}
+            <div className="mb-4">
+              <h3 className="font-medium mb-2 flex justify-between">
+                顏色空間
+                <span className="text-xs text-gray-500 cursor-pointer">更多 &gt;</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                <div className="w-16 h-16 bg-pink-200 rounded flex items-center justify-center cursor-pointer">
+                  <Plus size={20} className="text-pink-500" />
+                </div>
+                {recentlyUsedBackgrounds.slice(0, 2).map((img, i) => (
+                  <img 
+                    key={i} 
+                    src={img} 
+                    alt="顏色空間背景" 
+                    className="w-16 h-16 object-cover rounded cursor-pointer"
+                    onClick={() => handleBackgroundSelect(img)}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* 文青白系 */}
+            <div className="mb-4">
+              <h3 className="font-medium mb-2 flex justify-between">
+                文青白系
+                <span className="text-xs text-gray-500 cursor-pointer">更多 &gt;</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {recommendedBackgrounds.map((img, i) => (
+                  <img 
+                    key={i} 
+                    src={img} 
+                    alt="文青白系背景" 
+                    className="w-16 h-16 object-cover rounded cursor-pointer"
+                    onClick={() => handleBackgroundSelect(img)}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* 生成按鈕 */}
+            <button 
+              className="w-full py-2 bg-amber-700 text-white rounded"
+              onClick={handleGenerate}
+            >
+              生成
+            </button>
+          </div>
+        </div>
+        
+        {/* 中央圖片網格區域 */}
+        <div className="flex-1 bg-gray-100 overflow-y-auto">
+          <div className="p-4">
+            <div className="flex mb-4 items-center justify-between">
+              <button 
+                onClick={exitBatchMode}
+                className="flex items-center text-gray-700 px-3 py-1 border border-gray-300 rounded mr-4 bg-white"
+              >
+                <ArrowLeft size={16} className="mr-1" />
+                退出批量模式
+              </button>
+              
+              {selectedImages.length > 0 && (
+                <button 
+                  onClick={deleteSelectedImages}
+                  className="flex items-center text-gray-700 px-3 py-1 border border-gray-300 rounded bg-white"
+                >
+                  <Trash2 size={16} className="mr-1" />
+                  刪除
+                </button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {batchImages.map((image) => (
+                <div 
+                  key={image.id} 
+                  className="relative bg-white rounded shadow"
+                  onClick={() => toggleImageSelection(image.id)}
+                >
+                  <div className="absolute top-2 left-2 z-10">
+                    <div 
+                      className={`w-5 h-5 rounded-full border ${
+                        selectedImages.includes(image.id) 
+                          ? 'bg-blue-500 border-blue-500' 
+                          : 'bg-white border-gray-400'
+                      } flex items-center justify-center cursor-pointer`}
+                    >
+                      {selectedImages.includes(image.id) && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <img 
+                    src={image.url} 
+                    alt={`商品圖 ${image.id}`} 
+                    className="w-full h-32 object-contain rounded-t" 
+                  />
+                  
+                  <div className="absolute top-2 right-2 flex z-10">
+                    <button 
+                      className="w-6 h-6 rounded-full bg-white flex items-center justify-center mr-1 hover:bg-gray-100"
+                      onClick={(e) => deleteSingleImage(image.id, e)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    
+                    {!image.has_bg_removed && (
+                      <button 
+                        className="w-6 h-6 rounded-full bg-white flex items-center justify-center mr-1 hover:bg-gray-100"
+                        onClick={(e) => removeBackgroundSingleImage(image.id, e)}
+                      >
+                        <Scissors size={14} />
+                      </button>
+                    )}
+                    
+                    <button 
+                      className="w-6 h-6 rounded-full bg-white flex items-center justify-center hover:bg-gray-100"
+                      onClick={(e) => editSingleImage(image.id, e)}
+                    >
+                      <Edit size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* 右側縮放控制欄 */}
+        <div className="w-12 bg-white border-l border-gray-200 flex flex-col items-center pt-4">
+          <button 
+            className="w-8 h-8 rounded flex items-center justify-center mb-2 hover:bg-gray-100"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={18} />
+          </button>
+          <button className="w-8 h-8 rounded flex items-center justify-center mb-2 hover:bg-gray-100">
+            <Maximize size={18} />
+          </button>
+          <button className="w-8 h-8 rounded flex items-center justify-center mb-2 hover:bg-gray-100">
+            <Minimize size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+      />
+      
+      {/* 主內容區 */}
+      <div className="flex flex-1">
+        {/* 左側功能欄 */}
+        <Sidebar activePage="product" />
+        
+        {/* 上傳區域 */}
+        <div 
+          className="flex-1 flex items-center justify-center bg-gray-100"
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          <div className="text-center">
+            <div className="mb-8 flex justify-center">
+              <div className="w-16 h-16 rounded-full bg-orange-500 flex items-center justify-center text-white text-2xl font-bold">
+                T
+              </div>
+            </div>
+            
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept="image/jpeg,image/jpg,image/png"
+              multiple
+              style={{ display: 'none' }}
+            />
+            
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center justify-center mx-auto mb-4"
+            >
+              <Upload size={16} className="mr-2" />
+              上傳圖片
+            </button>
+            
+            <button 
+              onClick={enterBatchMode}
+              className="text-gray-700 px-4 py-2 rounded border border-gray-300 flex items-center justify-center mx-auto mb-8"
+            >
+              或進入批量生成
+            </button>
+            
+            <div className="text-sm text-gray-500 mb-2">
+              拖曳/複製/貼上圖片至此區塊 · 直接上傳
+            </div>
+            <div className="text-sm text-gray-500 mb-6">
+              支援 JPG · JPEG · PNG
+            </div>
+            
+            <div className="flex items-center justify-center">
+              <span className="mr-2">自動去背</span>
+              <div 
+                onClick={toggleBackgroundRemoval}
+                className={`w-12 h-6 rounded-full flex items-center p-1 cursor-pointer ${autoRemoveBackground ? 'bg-yellow-500 justify-end' : 'bg-gray-300 justify-start'}`}
+              >
+                <div className="w-4 h-4 rounded-full bg-white"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  /**
+   * 渲染批量處理頁面 (AI 商品圖-2-1)
+   */
+  const renderBatchModePage = () => (
+    <div className="flex flex-col h-screen">
+      {/* 頂部導航欄 */}
+      <Header 
+        isFileMenuOpen={isFileMenuOpen}
+        isDownloadMenuOpen={isDownloadMenuOpen}
+        setIsFileMenuOpen={setIsFileMenuOpen}
+        setIsDownloadMenuOpen={setIsDownloadMenuOpen}
+        handleSaveFile={handleSaveFile}
+        handleOpenDownloadOptions={handleOpenDownloadOptions}
+        handleDownloadFile={handleDownloadFile}
+        handleUndo={handleUndo}
+        handleRedo={handleRedo}
