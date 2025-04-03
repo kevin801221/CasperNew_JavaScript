@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { removeBackgroundAPI, replaceBackgroundAPI, batchRemoveBackgroundAPI } from '../utils/apiService';
 
 /**
  * 自定義 Hook 用於處理圖片編輯相關操作
@@ -55,15 +56,10 @@ const useImageEditor = () => {
   const removeBackground = useCallback(async (imageUrl) => {
     setIsEditing(true);
     try {
-      // 這裡應該是實際的去背處理邏輯
-      // 在實際應用中，這可能是一個 API 調用
       console.log('正在處理圖片去背:', imageUrl);
       
-      // 模擬處理時間
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 返回處理後的圖片 URL（這裡只是示例）
-      const processedImageUrl = imageUrl;
+      // 調用 API 服務進行去背處理
+      const processedImageUrl = await removeBackgroundAPI(imageUrl);
       
       // 添加到編輯歷史
       addEditHistory({ url: processedImageUrl, has_bg_removed: true });
@@ -76,6 +72,29 @@ const useImageEditor = () => {
       setIsEditing(false);
     }
   }, [addEditHistory]);
+  
+  /**
+   * 批量移除圖片背景
+   * @param {Array<string>} imageUrls - 圖片 URL 數組
+   * @returns {Promise<Array<string>>} 處理後的圖片 URL 數組
+   */
+  const batchRemoveBackground = useCallback(async (imageUrls) => {
+    setIsEditing(true);
+    try {
+      console.log('正在批量處理圖片去背:', imageUrls);
+      
+      // 調用 API 服務進行批量去背處理
+      const processedImageUrls = await batchRemoveBackgroundAPI(imageUrls);
+      
+      // 返回處理後的圖片 URL 數組
+      return processedImageUrls;
+    } catch (error) {
+      console.error('批量圖片去背處理失敗:', error);
+      throw error;
+    } finally {
+      setIsEditing(false);
+    }
+  }, []);
 
   /**
    * 替換圖片背景
@@ -86,14 +105,10 @@ const useImageEditor = () => {
   const replaceBackground = useCallback(async (imageUrl, backgroundUrl) => {
     setIsEditing(true);
     try {
-      // 這裡應該是實際的背景替換處理邏輯
       console.log('正在處理背景替換:', imageUrl, backgroundUrl);
       
-      // 模擬處理時間
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // 返回處理後的圖片 URL（這裡只是示例）
-      const processedImageUrl = imageUrl;
+      // 調用 API 服務進行背景替換處理
+      const processedImageUrl = await replaceBackgroundAPI(imageUrl, backgroundUrl);
       
       // 添加到編輯歷史
       addEditHistory({ url: processedImageUrl, background: backgroundUrl });
@@ -114,6 +129,7 @@ const useImageEditor = () => {
     undoEdit,
     redoEdit,
     removeBackground,
+    batchRemoveBackground,
     replaceBackground
   };
 };

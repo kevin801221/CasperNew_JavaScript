@@ -1,6 +1,7 @@
-import React from 'react';
-import { Trash2, Scissors, Edit, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trash2, Scissors, Edit, X, Loader } from 'lucide-react';
 import { useImageContext } from '../../contexts/ImageContext';
+import useImageEditor from '../../hooks/useImageEditor';
 import Button from '../common/Button';
 
 /**
@@ -13,8 +14,13 @@ const ImageGrid = () => {
     toggleImageSelection, 
     deleteSelectedImages, 
     deleteImage,
-    zoomLevel
+    zoomLevel,
+    updateImage
   } = useImageContext();
+  
+  const { removeBackground, batchRemoveBackground } = useImageEditor();
+  const [processingImages, setProcessingImages] = useState([]);
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
   // 處理單個圖片刪除
   const handleDeleteImage = (e, id) => {
@@ -23,10 +29,49 @@ const ImageGrid = () => {
   };
 
   // 處理單個圖片去背
-  const handleRemoveBackground = (e, id) => {
+  const handleRemoveBackground = async (e, id) => {
     e.stopPropagation(); // 防止觸發選擇事件
     console.log('去背圖片:', id);
-    // 這裡可以添加去背的邏輯
+    
+    try {
+      // 設置圖片為處理中狀態
+      setProcessingImages(prev => [...prev, id]);
+      
+      // 獲取圖片數據
+      const image = uploadedImages.find(img => img.id === id);
+      if (!image) {
+        console.error('找不到圖片:', id);
+        return;
+      }
+      
+      console.log('準備處理圖片:', image.url);
+      
+      // 如果是本地文件 URL，先轉換為完整 URL
+      let imageUrl = image.url;
+      if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+        const origin = window.location.origin;
+        imageUrl = `${origin}${imageUrl}`;
+        console.log('轉換後的完整 URL:', imageUrl);
+      }
+      
+      // 調用去背 API
+      const processedImageUrl = await removeBackground(imageUrl);
+      console.log('去背成功，處理後的 URL 長度:', processedImageUrl.length);
+      
+      // 更新圖片數據
+      updateImage(id, {
+        url: processedImageUrl,
+        has_bg_removed: true
+      });
+      
+      console.log('圖片數據已更新');
+    } catch (error) {
+      console.error('圖片去背失敗:', error);
+      alert('圖片去背處理失敗，請稍後再試。');
+    } finally {
+      // 移除處理中狀態
+      setProcessingImages(prev => prev.filter(imgId => imgId !== id));
+    }
   };
 
   // 處理單個圖片編輯
@@ -34,6 +79,40 @@ const ImageGrid = () => {
     e.stopPropagation(); // 防止觸發選擇事件
     console.log('編輯圖片:', id);
     // 這裡可以添加編輯的邏輯
+  };
+  
+  // 處理批量去背
+  const handleBatchRemoveBackground = async () => {
+    if (selectedImages.length === 0 || isBatchProcessing) return;
+    
+    try {
+      setIsBatchProcessing(true);
+      
+      // 獲取選中圖片的 URL
+      const imagesToProcess = uploadedImages
+        .filter(img => selectedImages.includes(img.id))
+        .map(img => img.url);
+      
+      // 調用批量去背 API
+      const processedImageUrls = await batchRemoveBackground(imagesToProcess);
+      
+      // 更新圖片數據
+      selectedImages.forEach((id, index) => {
+        if (index < processedImageUrls.length) {
+          updateImage(id, {
+            url: processedImageUrls[index],
+            has_bg_removed: true
+          });
+        }
+      });
+      
+      alert(`成功處理 ${processedImageUrls.length} 張圖片的背景`);
+    } catch (error) {
+      console.error('批量去背失敗:', error);
+      alert('批量去背處理失敗，請稍後再試。');
+    } finally {
+      setIsBatchProcessing(false);
+    }
   };
 
   // 計算圖片尺寸
@@ -53,14 +132,35 @@ const ImageGrid = () => {
       <div className="flex mb-4 items-center justify-between">
         <div className="flex items-center">
           {selectedImages.length > 0 && (
-            <Button 
-              variant="secondary"
-              onClick={deleteSelectedImages}
-              className="mr-2"
-            >
-              <Trash2 size={16} className="mr-1" />
-              刪除 ({selectedImages.length})
-            </Button>
+            <>
+              <Button 
+                variant="secondary"
+                onClick={deleteSelectedImages}
+                className="mr-2"
+              >
+                <Trash2 size={16} className="mr-1" />
+                刪除 ({selectedImages.length})
+              </Button>
+              
+              <Button 
+                variant="primary"
+                onClick={handleBatchRemoveBackground}
+                className="mr-2"
+                disabled={isBatchProcessing}
+              >
+                {isBatchProcessing ? (
+                  <>
+                    <Loader size={16} className="mr-1 animate-spin" />
+                    處理中...
+                  </>
+                ) : (
+                  <>
+                    <Scissors size={16} className="mr-1" />
+                    批量去背 ({selectedImages.length})
+                  </>
+                )}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -109,8 +209,13 @@ const ImageGrid = () => {
                 className="w-6 h-6 rounded-full bg-black bg-opacity-50 flex items-center justify-center text-white mr-1"
                 onClick={(e) => handleRemoveBackground(e, image.id)}
                 title="去背"
+                disabled={processingImages.includes(image.id)}
               >
-                <Scissors size={14} />
+                {processingImages.includes(image.id) ? (
+                  <Loader size={14} className="animate-spin" />
+                ) : (
+                  <Scissors size={14} />
+                )}
               </button>
               <button 
                 className="w-6 h-6 rounded-full bg-black bg-opacity-50 flex items-center justify-center text-white"
