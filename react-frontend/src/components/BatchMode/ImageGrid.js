@@ -6,8 +6,22 @@ import Button from '../common/Button';
 
 /**
  * 批量處理頁面的圖片網格組件
+ * @param {Object} props - 組件屬性
+ * @param {boolean} props.showBackgroundPreview - 是否顯示背景預覽
+ * @param {string} props.backgroundImage - 背景圖片 URL
+ * @param {boolean} props.showSizePreview - 是否顯示尺寸調整預覽
+ * @param {number} props.canvasWidth - 畫布寬度
+ * @param {number} props.canvasHeight - 畫布高度
+ * @param {number} props.margin - 邊距
  */
-const ImageGrid = () => {
+const ImageGrid = ({ 
+  showBackgroundPreview = false, 
+  backgroundImage = null,
+  showSizePreview = false,
+  canvasWidth = 800,
+  canvasHeight = 600,
+  margin = 0
+}) => {
   const { 
     uploadedImages, 
     selectedImages, 
@@ -124,7 +138,19 @@ const ImageGrid = () => {
     };
   };
 
+  // 計算預覽畫布尺寸
+  const getPreviewCanvasSize = () => {
+    // 保持畫布比例但適應容器
+    const ratio = canvasWidth / canvasHeight;
+    const baseWidth = 180 * zoomLevel;
+    return {
+      width: baseWidth,
+      height: baseWidth / ratio
+    };
+  };
+
   const { width, height } = getImageSize();
+  const previewSize = getPreviewCanvasSize();
 
   return (
     <div className="p-4">
@@ -178,7 +204,10 @@ const ImageGrid = () => {
             className={`relative rounded overflow-hidden border-2 transition-all ${
               selectedImages.includes(image.id) ? 'border-amber-500' : 'border-transparent'
             }`}
-            style={{ height: `${height}px` }}
+            style={{
+              height: showSizePreview ? `${previewSize.height}px` : `${height}px`,
+              width: showSizePreview ? `${previewSize.width}px` : 'auto'
+            }}
             onClick={() => toggleImageSelection(image.id)}
           >
             {/* 選擇框 */}
@@ -226,11 +255,41 @@ const ImageGrid = () => {
               </button>
             </div>
             
+            {/* 背景預覽 */}
+            {showBackgroundPreview && backgroundImage && (
+              <div 
+                className="absolute inset-0 z-0" 
+                style={{
+                  backgroundImage: `url(${backgroundImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }}
+              ></div>
+            )}
+            
+            {/* 尺寸調整預覽 */}
+            {showSizePreview && (
+              <div 
+                className="absolute z-10"
+                style={{
+                  top: `${margin}px`,
+                  left: `${margin}px`,
+                  right: `${margin}px`,
+                  bottom: `${margin}px`,
+                  border: '1px dashed rgba(0,0,0,0.2)'
+                }}
+              ></div>
+            )}
+            
             {/* 圖片 */}
             <img 
               src={image.url} 
               alt={image.name || '上傳圖片'} 
-              className="w-full h-full object-contain"
+              className={`${showSizePreview ? 'absolute inset-0 m-auto max-w-full max-h-full z-20' : 'w-full h-full object-contain'}`}
+              style={showSizePreview ? {
+                maxWidth: `calc(100% - ${margin * 2}px)`,
+                maxHeight: `calc(100% - ${margin * 2}px)`
+              } : {}}
             />
             
             {/* 去背標記 */}

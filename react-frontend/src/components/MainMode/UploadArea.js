@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, Edit } from 'lucide-react';
 import { useImageContext } from '../../contexts/ImageContext';
 import Button from '../common/Button';
 import Toggle from '../common/Toggle';
@@ -12,7 +12,8 @@ const UploadArea = () => {
     autoRemoveBackground, 
     toggleBackgroundRemoval, 
     handleFileUpload,
-    enterBatchMode
+    enterBatchMode,
+    enterSingleEditorMode
   } = useImageContext();
   
   const fileInputRef = useRef(null);
@@ -97,9 +98,18 @@ const UploadArea = () => {
         <Button 
           variant="outline"
           onClick={enterBatchMode}
+          className="mx-auto mb-4"
+        >
+          進入批量生成
+        </Button>
+        
+        <Button 
+          variant="outline"
+          onClick={enterSingleEditorMode}
           className="mx-auto mb-8"
         >
-          或進入批量生成
+          <Edit size={16} className="mr-2" />
+          單張圖片編輯
         </Button>
         
         <div className="text-sm text-gray-500 mb-2">
