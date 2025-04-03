@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useRef } from 'react';
+import { rotateImage, flipImage, adjustBrightness, adjustContrast, adjustSaturation, adjustSharpness, applyImageAdjustments, autoAdjustParams } from '../utils/imageProcessing';
 
 // 創建圖片上下文
 const ImageContext = createContext();
@@ -52,6 +53,13 @@ export const ImageContextProvider = ({ children }) => {
   const [bgPrompt, setBgPrompt] = useState('');
   const [bgNegativePrompt, setBgNegativePrompt] = useState('');
   const bgReferenceInputRef = useRef(null);
+  
+  // 圖片處理狀態
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(0);
+  const [saturation, setSaturation] = useState(0);
+  const [sharpness, setSharpness] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // 標尺設置
   const [rulerStyle, setRulerStyle] = useState(0);
@@ -364,15 +372,37 @@ export const ImageContextProvider = ({ children }) => {
   };
   
   // 旋轉圖片
-  const handleRotate = (degrees) => {
-    console.log('旋轉圖片:', degrees);
-    // 在實際應用中，這裡會旋轉圖片
+  const handleRotate = async (degrees) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    
+    try {
+      console.log('旋轉圖片:', degrees);
+      const rotatedImageUrl = await rotateImage(productImageUrl, degrees);
+      setProductImageUrl(rotatedImageUrl);
+    } catch (error) {
+      console.error('旋轉圖片失敗:', error);
+      alert('旋轉圖片失敗');
+    } finally {
+      setIsProcessing(false);
+    }
   };
   
   // 翻轉圖片
-  const handleFlip = (direction) => {
-    console.log('翻轉圖片:', direction);
-    // 在實際應用中，這裡會翻轉圖片
+  const handleFlip = async (direction) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    
+    try {
+      console.log('翻轉圖片:', direction);
+      const flippedImageUrl = await flipImage(productImageUrl, direction);
+      setProductImageUrl(flippedImageUrl);
+    } catch (error) {
+      console.error('翻轉圖片失敗:', error);
+      alert('翻轉圖片失敗');
+    } finally {
+      setIsProcessing(false);
+    }
   };
   
   // 刪除圖片

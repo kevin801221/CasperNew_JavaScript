@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, RotateCcw, RotateCw, RefreshCw, Maximize2, Minimize2, Zap, Sliders } from 'lucide-react';
 import { useImageContext } from '../../../contexts/ImageContext';
 
@@ -9,7 +9,18 @@ import { useImageContext } from '../../../contexts/ImageContext';
 const EditPanel = ({ onClose }) => {
   const { 
     handleRotate,
-    handleFlip
+    handleFlip,
+    brightness,
+    contrast,
+    saturation,
+    sharpness,
+    isProcessing,
+    handleBrightnessChange,
+    handleContrastChange,
+    handleSaturationChange,
+    handleSharpnessChange,
+    applyAdjustments,
+    handleAutoAdjust
   } = useImageContext();
   
   // 當前編輯標籤
@@ -18,13 +29,21 @@ const EditPanel = ({ onClose }) => {
   // 比例設置
   const [aspectRatio, setAspectRatio] = useState('original');
   
-  // 參數調整值
-  const [brightness, setBrightness] = useState(0);
-  const [contrast, setContrast] = useState(0);
+  // 本地參數調整值 (用於UI顯示)
+  const [localBrightness, setLocalBrightness] = useState(brightness);
+  const [localContrast, setLocalContrast] = useState(contrast);
   const [shadows, setShadows] = useState(0);
-  const [saturation, setSaturation] = useState(0);
-  const [sharpness, setSharpness] = useState(0);
+  const [localSaturation, setLocalSaturation] = useState(saturation);
+  const [localSharpness, setLocalSharpness] = useState(sharpness);
   const [whiteBalance, setWhiteBalance] = useState(0);
+  
+  // 當上下文中的值變化時，更新本地狀態
+  useEffect(() => {
+    setLocalBrightness(brightness);
+    setLocalContrast(contrast);
+    setLocalSaturation(saturation);
+    setLocalSharpness(sharpness);
+  }, [brightness, contrast, saturation, sharpness]);
   
   // 濾鏡強度
   const [filterStrength, setFilterStrength] = useState(50);
@@ -43,15 +62,9 @@ const EditPanel = ({ onClose }) => {
   ];
   
   // 處理自動調整
-  const handleAutoAdjust = () => {
-    console.log('自動調整參數');
-    // 在實際應用中，這裡會自動調整圖片參數
-    setBrightness(10);
-    setContrast(5);
-    setShadows(-5);
-    setSaturation(10);
-    setSharpness(15);
-    setWhiteBalance(0);
+  const handleAutoAdjustLocal = () => {
+    if (isProcessing) return;
+    handleAutoAdjust();
   };
   
   // 處理提升畫質
@@ -63,12 +76,18 @@ const EditPanel = ({ onClose }) => {
   // 重設調整
   const handleResetAdjustments = () => {
     console.log('重設調整');
-    setBrightness(0);
-    setContrast(0);
+    setLocalBrightness(0);
+    setLocalContrast(0);
     setShadows(0);
-    setSaturation(0);
-    setSharpness(0);
+    setLocalSaturation(0);
+    setLocalSharpness(0);
     setWhiteBalance(0);
+    
+    // 更新上下文中的值
+    handleBrightnessChange(0);
+    handleContrastChange(0);
+    handleSaturationChange(0);
+    handleSharpnessChange(0);
   };
   
   // 渲染比例標籤內容
@@ -194,7 +213,8 @@ const EditPanel = ({ onClose }) => {
       <div className="flex justify-between mb-4">
         <button 
           className="flex items-center text-sm px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
-          onClick={handleAutoAdjust}
+          onClick={handleAutoAdjustLocal}
+          disabled={isProcessing}
         >
           <Zap size={14} className="mr-1" />
           自動調整
@@ -211,30 +231,40 @@ const EditPanel = ({ onClose }) => {
       <div className="mb-3">
         <div className="flex justify-between mb-1">
           <label className="text-sm">亮度</label>
-          <span className="text-xs">{brightness}</span>
+          <span className="text-xs">{localBrightness}</span>
         </div>
         <input 
           type="range" 
           min="-100" 
           max="100" 
-          value={brightness}
-          onChange={(e) => setBrightness(parseInt(e.target.value))}
+          value={localBrightness}
+          onChange={(e) => {
+            const value = parseInt(e.target.value);
+            setLocalBrightness(value);
+            handleBrightnessChange(value);
+          }}
           className="w-full"
+          disabled={isProcessing}
         />
       </div>
       
       <div className="mb-3">
         <div className="flex justify-between mb-1">
           <label className="text-sm">對比度</label>
-          <span className="text-xs">{contrast}</span>
+          <span className="text-xs">{localContrast}</span>
         </div>
         <input 
           type="range" 
           min="-100" 
           max="100" 
-          value={contrast}
-          onChange={(e) => setContrast(parseInt(e.target.value))}
+          value={localContrast}
+          onChange={(e) => {
+            const value = parseInt(e.target.value);
+            setLocalContrast(value);
+            handleContrastChange(value);
+          }}
           className="w-full"
+          disabled={isProcessing}
         />
       </div>
       
@@ -256,30 +286,40 @@ const EditPanel = ({ onClose }) => {
       <div className="mb-3">
         <div className="flex justify-between mb-1">
           <label className="text-sm">飽和度</label>
-          <span className="text-xs">{saturation}</span>
+          <span className="text-xs">{localSaturation}</span>
         </div>
         <input 
           type="range" 
           min="-100" 
           max="100" 
-          value={saturation}
-          onChange={(e) => setSaturation(parseInt(e.target.value))}
+          value={localSaturation}
+          onChange={(e) => {
+            const value = parseInt(e.target.value);
+            setLocalSaturation(value);
+            handleSaturationChange(value);
+          }}
           className="w-full"
+          disabled={isProcessing}
         />
       </div>
       
       <div className="mb-3">
         <div className="flex justify-between mb-1">
           <label className="text-sm">清晰度</label>
-          <span className="text-xs">{sharpness}</span>
+          <span className="text-xs">{localSharpness}</span>
         </div>
         <input 
           type="range" 
           min="-100" 
           max="100" 
-          value={sharpness}
-          onChange={(e) => setSharpness(parseInt(e.target.value))}
+          value={localSharpness}
+          onChange={(e) => {
+            const value = parseInt(e.target.value);
+            setLocalSharpness(value);
+            handleSharpnessChange(value);
+          }}
           className="w-full"
+          disabled={isProcessing}
         />
       </div>
       
@@ -298,13 +338,23 @@ const EditPanel = ({ onClose }) => {
         />
       </div>
       
-      <button 
-        className="w-full py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
-        onClick={handleResetAdjustments}
-      >
-        <RefreshCw size={14} className="inline mr-1" />
-        重新調整
-      </button>
+      <div className="flex gap-2 mb-4">
+        <button 
+          className="flex-1 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+          onClick={handleResetAdjustments}
+          disabled={isProcessing}
+        >
+          <RefreshCw size={14} className="inline mr-1" />
+          重新調整
+        </button>
+        <button 
+          className="flex-1 py-2 text-sm bg-amber-600 text-white rounded hover:bg-amber-700"
+          onClick={applyAdjustments}
+          disabled={isProcessing || (localBrightness === 0 && localContrast === 0 && localSaturation === 0 && localSharpness === 0)}
+        >
+          應用調整
+        </button>
+      </div>
     </div>
   );
   
